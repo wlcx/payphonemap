@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title></title>
+    <script src='https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.js'></script>
+    <link href='https://unpkg.com/maplibre-gl@latest/dist/maplibre-gl.css' rel='stylesheet' />
+    <style>
+        body {
+            width: 100vw;
+            height: 100vh;
+            margin: 0;
+            padding: 0;
+        }
+    </style>
+</head>
+<body>
+    <div id='map' style='width: 100%; height: 100%;'></div>
+    <script>
+    var map = new maplibregl.Map({
+      container: 'map',
+      style: "https://api.maptiler.com/maps/basic-v2/style.json?key=D9htCIoXfmSqomvHIXLq",
+      center: [-2.0, 51.0], // starting position [lng, lat]
+      zoom: 3 // starting zoom
+    });
+    var geojson = {
+        'type': 'FeatureCollection',
+        'features': [
+            {
+                'type': 'Feature',
+                'geometry': {
+                    'type': 'Point',
+                    'coordinates': [0, 0]
+                }
+            }
+
+        ]
+    };
+
+    var stuff = {
+        'type': 'FeatureCollection',
+        'features': [],
+    };
+
+    map.on('load', () => {
+        // Add a single point to the map
+        map.addSource('point', {
+            'type': 'geojson',
+            'data': geojson
+        });
+
+        map.addLayer({
+            'id': 'point',
+            'type': 'circle',
+            'source': 'point',
+            'paint': {
+                'circle-radius': 10,
+                'circle-color': '#3887be'
+            }
+        });
+
+        map.addSource('stuff', {
+            'type': 'geojson',
+            'data': stuff,
+        });
+
+        map.addLayer({
+            'id': 'stuff',
+            'type': 'circle',
+            'source': 'stuff',
+            'paint': {
+                'circle-radius': 5,
+                'circle-color': '#ff0000'
+            }
+        });
+        id = navigator.geolocation.watchPosition((pos) => {
+            console.info(pos.coords);
+            p = [pos.coords.longitude, pos.coords.latitude];
+            geojson.features[0].geometry.coordinates = p;
+            map.getSource('point').setData(geojson);
+            map.setCenter(p);
+            map.setZoom(16);
+        }, (err) => alert(err), {});
+
+    });
+    map.on('moveend', () => {
+        // Load shit
+        const bounds = map.getBounds();
+        const [s,w,n,e] = [bounds.getSouth(), bounds.getWest(), bounds.getNorth(), bounds.getEast()];
+        fetch('https://www.overpass-api.de/api/interpreter?', {
+            method: 'POST',
+            headers: {
+              'Accept': 'application/json',
+              'Content-Type': 'application/json'
+            },
+            body:`[bbox:${s},${w},${n},${e}][out:json];node["amenity"="telephone"]["operator"="BT"];out;`
+        })
+            .then((res) => res.json())
+            .then((data) => {
+                const things = data.elements.map((e) => ({
+                    "type": "Feature",
+                    "geometry": {
+                        "type": "Point",
+                        "coordinates": [e.lon, e.lat],
+                    },
+                }));
+                stuff.features = things;
+                map.getSource("stuff").setData(stuff);
+            });
+    });
+
+    </script>
+</body>
+</html>
