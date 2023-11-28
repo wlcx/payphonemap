@@ -69,7 +69,7 @@
             'type': 'circle',
             'source': 'stuff',
             'paint': {
-                'circle-radius': 5,
+                'circle-radius': 8,
                 'circle-color': '#ff0000'
             }
         });
@@ -93,20 +93,39 @@
               'Accept': 'application/json',
               'Content-Type': 'application/json'
             },
-            body:`[bbox:${s},${w},${n},${e}][out:json];node["amenity"="telephone"]["operator"="BT"];out;`
+            body:`[bbox:${s},${w},${n},${e}][out:json];node["amenity"="telephone"];out;`
         })
             .then((res) => res.json())
             .then((data) => {
-                const things = data.elements.map((e) => ({
-                    "type": "Feature",
-                    "geometry": {
-                        "type": "Point",
-                        "coordinates": [e.lon, e.lat],
-                    },
-                }));
+                const things = data.elements.map((e) => {
+                    const cells = Object.entries(e.tags).map(([k, v]) => `<tr><td>${k}</td><td>${v}</td></tr>`);
+                    return {
+                        "type": "Feature",
+                        "geometry": {
+                            "type": "Point",
+                            "coordinates": [e.lon, e.lat],
+                        },
+                        "properties": {
+                            "description": `<p>Hello</p><table>${cells}</table>`,
+                        },
+                    }
+                });
                 stuff.features = things;
                 map.getSource("stuff").setData(stuff);
             });
+    });
+    map.on("click", "stuff", (e) => {
+        const coords = e.features[0].geometry.coordinates.slice();
+        const desc = e.features[0].properties.description;
+        while (Math.abs(e.lngLat.lng - coords[0]) > 180) {
+                coords[0] += e.lngLat.lng > coords[0] ? 360 : -360;
+            }
+
+            new maplibregl.Popup()
+                .setLngLat(coords)
+                .setHTML(desc)
+                .addTo(map);
+
     });
 
     </script>
